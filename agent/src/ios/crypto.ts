@@ -323,6 +323,101 @@ export namespace ioscrypto {
     });
   };
 
+  const secKeyCreateEncryptedData = (ident: string): InvocationListener => {
+    const hook = "SecKeyCreateEncryptedData"
+    return Interceptor.attach(
+      Module.getExportByName(null, hook), {
+      onEnter(args) {
+
+        this.secKeyCreateEncryptedData = {}
+
+        // Private key with which to decrypt the data. The private key never leaves the SEP
+        this.secKeyCreateEncryptedData.keyRef = new ObjC.Object(args[0]);
+
+        // One of SecKeyAlgorithm constants suitable to verify signature with this key.
+        this.secKeyCreateEncryptedData.algorithm = new ObjC.Object(args[1]);
+
+        // The data to encrypt.
+        this.secKeyCreateEncryptedData.plaintext = hexToString(new ObjC.Object(args[2]));
+
+        fsend(ident, hook, this.secKeyCreateEncryptedData)
+      },
+    });
+  };
+
+  const secKeyCreateDecryptedData = (ident: string): InvocationListener => {
+    const hook = "SecKeyCreateDecryptedData"
+    return Interceptor.attach(
+      Module.getExportByName(null, hook), {
+      onEnter(args) {
+
+        this.secKeyCreateDecryptedData = {}
+
+        // Private key with which to decrypt the data. The private key never leaves the SEP
+        this.secKeyCreateDecryptedData.keyRef = new ObjC.Object(args[0]);
+
+        // One of SecKeyAlgorithm constants suitable to verify signature with this key.
+        this.secKeyCreateDecryptedData.algorithm = new ObjC.Object(args[1]);
+
+        // The data to decrypt.
+        this.secKeyCreateDecryptedData.ciphertext = new ObjC.Object(args[2]);;
+      },
+      onLeave(retVal) {
+        const result = new ObjC.Object(retVal)
+        const data = result.bytes().readByteArray(result.length())
+        // this.secKeyCreateDecryptedData.resultData = result.bytes().readByteArray(result.length())
+        this.secKeyCreateDecryptedData.resultStr = arrayBufferToHex(data)
+        fsend(ident, hook, this.secKeyCreateDecryptedData)
+      }
+    });
+  };
+
+  const secKeyCreateSignature = (ident: string): InvocationListener => {
+    const hook = "SecKeyCreateSignature"
+    return Interceptor.attach(
+      Module.getExportByName(null, hook), {
+      onEnter(args) {
+
+        this.secKeyCreateSignature = {}
+
+        // Private key with which to sign. The private key never leaves the SEP
+        this.secKeyCreateSignature.privateKey = new ObjC.Object(args[0]);
+
+        // One of SecKeyAlgorithm constants suitable to verify signature with this key.
+        this.secKeyCreateSignature.algorithm = new ObjC.Object(args[1]);;
+
+        // The data to be signed, typically the digest of the actual data.
+        this.secKeyCreateSignature.dataToSign = hexToString(new ObjC.Object(args[2]));
+
+        fsend(ident, hook, this.secKeyCreateSignature)
+      },
+    });
+  };
+
+  const secKeyVerifySignature = (ident: string): InvocationListener => {
+    const hook = "SecKeyVerifySignature"
+    return Interceptor.attach(
+      Module.getExportByName(null, hook), {
+      onEnter(args) {
+        this.secKeyVerifySignature = {}
+
+        // Public key with which to verify the signature.
+        this.secKeyVerifySignature.key = new ObjC.Object(args[0]);
+
+        // One of SecKeyAlgorithm constants suitable to verify signature with this key.
+        this.secKeyVerifySignature.algorithm = new ObjC.Object(args[1]);;
+
+        // The data over which sig is being verified, typically the digest of the actual data.
+        this.secKeyVerifySignature.signedData = new ObjC.Object(args[2]);
+
+        // The signature to verify.
+        this.secKeyVerifySignature.signature = new ObjC.Object(args[3]);
+
+        fsend(ident, hook, this.secKeyVerifySignature)
+      },
+    });
+  };
+
   export const monitor = (): void => {
     // if we already have a job registered then return
     if (jobs.hasIdent(cryptoidentifier)) {
@@ -344,6 +439,10 @@ export namespace ioscrypto {
     job.invocations.push(cccryptorcreate(job.identifier));
     job.invocations.push(cccryptorupdate(job.identifier));
     job.invocations.push(cccryptorfinal(job.identifier));
+    job.invocations.push(secKeyCreateEncryptedData(job.identifier));
+    job.invocations.push(secKeyCreateDecryptedData(job.identifier));
+    job.invocations.push(secKeyCreateSignature(job.identifier));
+    job.invocations.push(secKeyVerifySignature(job.identifier));
 
     jobs.add(job);
   };
